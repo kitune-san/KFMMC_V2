@@ -115,7 +115,7 @@ module KFMMC_DRIVE #(
         if (reset)
             spi_clock_select    <= 1'b0;
         else if (select_spi_status & io_write)
-            spi_clock_select    <= io_bus_data_out[0];
+            spi_clock_select    <= io_bus_data_out[1];
         else
             spi_clock_select    <= spi_clock_select;
     end
@@ -180,6 +180,8 @@ module KFMMC_DRIVE #(
 
     always_ff @(posedge clock, posedge reset) begin
         if (reset)
+            drive_busy  <= 1'b1;
+        else if (write_command)
             drive_busy  <= 1'b1;
         else if (io_write & select_status_flags)
             drive_busy  <= io_bus_data_out[0];
@@ -270,7 +272,7 @@ module KFMMC_DRIVE #(
     always_ff @(posedge clock, posedge reset) begin
         if (reset)
             write_completion_interrupt      <= 1'b0;
-        else if (write_data)
+        else if (read_data)
             write_completion_interrupt      <= 1'b0;
         else if (io_write & select_interrupt_flags)
             write_completion_interrupt      <= io_bus_data_out[3];
