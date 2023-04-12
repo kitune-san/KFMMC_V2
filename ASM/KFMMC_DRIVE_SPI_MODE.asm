@@ -2,7 +2,7 @@
 ; Microcode for KFMMC_DRIVE_SPI_MODE.sv
 ; Written by kitune-san
 ;
-; This code uses ldstasm to convert to binary.
+; Convert this code to ROM using ldstasm
 ; https://github.com/kitune-san/LDST_Sequencer
 ;
 
