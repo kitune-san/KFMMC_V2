@@ -1,3 +1,10 @@
+;
+; Microcode for KFMMC_DRIVE_SPI_MODE.sv
+; Written by kitune-san
+;
+; This code uses ldstasm to convert to binary.
+; https://github.com/kitune-san/LDST_Sequencer
+;
 
 ; Registers
 define reg1             0x04
@@ -89,21 +96,65 @@ send_cmd0:
 
 mode_check:
     ; Is not MMC mode?
-;    ld      status_flags
-;    st      a
-;    ldi     0x04
-;    st      b
-;    ldi     and
-;    st      alu
-;    ld      alu
-;
-;    ; no
-;    ld      send_cmd8.h
-;    jz      send_cmd8.l
-;
-;    ; yes
-;send_cmd1:
-;    ; Send CMD1 41 00 00 00 00 F9
+    ld      status_flags
+    st      a
+    ldi     0x04
+    st      b
+    ldi     and
+    st      alu
+    ld      alu
+
+    ; no
+    ldi     send_cmd8.h
+    jz      send_cmd8.l
+
+    ; yes
+    ldi     255
+    st      reg3
+send_cmd1:
+    ; Send CMD1 41 00 00 00 00 F9
+    ldi     0x41
+    st      spi_data
+    ldi     wait_spi_comm.h
+    call    wait_spi_comm.l
+
+    ldi     send_4_dummy_clock.h
+    call    send_4_dummy_clock.l
+
+    ldi     0xF9
+    st      spi_data
+    ldi     wait_spi_comm.h
+    call    wait_spi_comm.l
+
+    ldi     10
+    st      reg1
+    ldi     wait_spi_r1_response.h
+    call    wait_spi_r1_response.l
+
+    ld      reg2
+    st      a
+    ldi     0x00
+    st      b
+    ldi     xor
+    st      alu
+    ld      alu
+    ldi     send_cmd9.h
+    jz      send_cmd9.l
+
+    ld      reg3
+    st      a
+    ldi     1
+    st      b
+    ldi     sub
+    st      alu
+    ld      alu
+    st      reg3
+
+    ldi     reset.h
+    jz      reset.l
+
+    ldi     send_cmd1.h
+    jmp     send_cmd1.l
 
 send_cmd8:
     ; Send dummy byte
