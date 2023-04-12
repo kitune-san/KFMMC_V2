@@ -501,11 +501,15 @@ send_cmd17:
     ldi     xor
     st      alu
     ld      alu
-    ldi     send_cmd17_data_token.h
-    jz      send_cmd17_data_token.l
+    ldi     send_cmd17_clear_wait_token_count.h
+    jz      send_cmd17_clear_wait_token_count.l
 
     ldi     send_cmd17_error.h
     jmp     send_cmd17_error.l
+
+send_cmd17_clear_wait_token_count:
+    ldi     255
+    st      reg4
 
 send_cmd17_data_token:
     ldi     255
@@ -525,8 +529,21 @@ send_cmd17_data_token:
     ldi     send_cmd17_set_read_count.h
     jz      send_cmd17_set_read_count.l
 
+    ld      reg4
+    st      a
+    ldi     1
+    st      b
+    ldi     sub
+    st      alu
+    ld      alu
+    st      reg4
+
     ldi     send_cmd17_error.h
-    jmp     send_cmd17_error.l
+    jz      send_cmd17_error.l
+
+    ldi     send_cmd17_data_token.h
+    jmp     send_cmd17_data_token.l
+
 
 send_cmd17_set_read_count:
     ldi     0xFF
@@ -927,17 +944,34 @@ send_address_block:
     ret
 
 send_address_legacy:
-    ld      block_addr_3
-    st      spi_data
-    ldi     wait_spi_comm.h
-    call    wait_spi_comm.l
+    ld      block_addr_1
+    st      a
+    ldi     shl
+    st      alu
+    ld      alu
+    st      reg1
 
     ld      block_addr_2
+    st      a
+    ldi     shcl
+    st      alu
+    ld      alu
+    st      reg2
+
+    ld      block_addr_3
+    st      a
+    ld      alu
+
     st      spi_data
     ldi     wait_spi_comm.h
     call    wait_spi_comm.l
 
-    ld      block_addr_1
+    ld      reg2
+    st      spi_data
+    ldi     wait_spi_comm.h
+    call    wait_spi_comm.l
+
+    ld      reg1
     st      spi_data
     ldi     wait_spi_comm.h
     call    wait_spi_comm.l
