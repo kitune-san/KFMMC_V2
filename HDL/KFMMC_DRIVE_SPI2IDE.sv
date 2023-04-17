@@ -330,7 +330,8 @@ module KFMMC_DRIVE_IDE #(
     logic   [1:0]   shift_fifo;
 
     assign  fifo_in = select_ide_fifo ? io_bus_data_out :
-                        write_command ? latch_data[7:0] : ide_write_data[15:8];
+                        shift_fifo[1] ? latch_data[7:0] :
+                        shift_fifo[0] ? latch_data[15:8] : 8'hFF;
 
     always_ff @(posedge clock, posedge reset) begin
         if (reset)
@@ -374,7 +375,7 @@ module KFMMC_DRIVE_IDE #(
         else if (select_ide_data_request)
             fifo_counter    <= access_block_size;
         else if (ide_data_request && (|fifo_counter) && shift_fifo[0])
-            fifo_counter    <= fifo_counter - 16'h0000;
+            fifo_counter    <= fifo_counter - 16'h0001;
         else
             fifo_counter    <= fifo_counter;
     end
