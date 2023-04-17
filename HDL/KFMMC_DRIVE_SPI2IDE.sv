@@ -149,7 +149,7 @@ module KFMMC_DRIVE_IDE #(
     logic           write_control;
 
 
-    always_ff @(negedge clock, posedge reset) begin
+    always_ff @(posedge clock, posedge reset) begin
         if (reset) begin
             latch_address       <= 3'b000;
             latch_data          <= 16'h0000;
@@ -268,7 +268,7 @@ module KFMMC_DRIVE_IDE #(
     end
 
     logic   [127:0] csd;
-    always_ff @(negedge clock, posedge reset) begin
+    always_ff @(posedge clock, posedge reset) begin
         if (reset)
             csd <= 0;
         else if (io_write & select_csd_input)
@@ -278,7 +278,7 @@ module KFMMC_DRIVE_IDE #(
     end
 
     // Storage size
-    always_ff @(negedge clock, posedge reset) begin
+    always_ff @(posedge clock, posedge reset) begin
         if (reset)
             storage_size <= 0;
         else if (csd[127:126] == 2'b00) // V1
@@ -291,7 +291,7 @@ module KFMMC_DRIVE_IDE #(
 
     // Block Address
     logic   [31:0]  block_address;
-    always_ff @(negedge clock, posedge reset) begin
+    always_ff @(posedge clock, posedge reset) begin
         if (reset)
             block_address   <= 32'h00000000;
         else if (~io_write)
@@ -368,7 +368,7 @@ module KFMMC_DRIVE_IDE #(
 
     // FIFO counter
     logic   [15:0]  fifo_counter;
-    always_ff @(negedge clock, posedge reset) begin
+    always_ff @(posedge clock, posedge reset) begin
         if (reset)
             fifo_counter    <= 16'h0000;
         else if (select_ide_data_request)
@@ -386,7 +386,7 @@ module KFMMC_DRIVE_IDE #(
     logic           ide_error_flag;
     wire    [7:0]   ide_status  = {ide_busy, ide_device_ready, 2'b00, ide_data_request, 2'b00, ide_error_flag};
 
-    always_ff @(negedge clock, posedge reset) begin
+    always_ff @(posedge clock, posedge reset) begin
         if (reset)
             ide_busy            <= 1'b1;
         else if (write_command && (latch_address == 3'b111))
@@ -397,7 +397,7 @@ module KFMMC_DRIVE_IDE #(
             ide_busy            <= ide_busy;
     end
 
-    always_ff @(negedge clock, posedge reset) begin
+    always_ff @(posedge clock, posedge reset) begin
         if (reset)
             ide_device_ready    <= 1'b0;
         else if (select_ide_status)
@@ -406,7 +406,7 @@ module KFMMC_DRIVE_IDE #(
             ide_device_ready    <= ide_device_ready;
     end
 
-    always_ff @(negedge clock, posedge reset) begin
+    always_ff @(posedge clock, posedge reset) begin
         if (reset)
             ide_data_request    <= 1'b0;
         else if (select_ide_data_request)
@@ -417,7 +417,7 @@ module KFMMC_DRIVE_IDE #(
             ide_data_request    <= ide_data_request;
     end
 
-    always_ff @(negedge clock, posedge reset) begin
+    always_ff @(posedge clock, posedge reset) begin
         if (reset)
             ide_error_flag      <= 1'b0;
         else if (select_ide_status)
@@ -429,7 +429,7 @@ module KFMMC_DRIVE_IDE #(
     // Error
     logic   [7:0]   ide_error;
 
-    always_ff @(negedge clock, posedge reset) begin
+    always_ff @(posedge clock, posedge reset) begin
         if (reset)
             ide_error           <= 1'b0;
         else if (select_ide_error)
