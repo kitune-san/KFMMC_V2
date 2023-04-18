@@ -296,13 +296,13 @@ module KFMMC_DRIVE_IDE #(
             block_address   <= 32'h00000000;
         else if (~io_write)
             block_address   <= block_address;
-        else if (select_block_address_1)
+        else if (io_write & select_block_address_1)
             block_address   <= {block_address[31:8],  io_bus_data_out};
-        else if (select_block_address_2)
+        else if (io_write & select_block_address_2)
             block_address   <= {block_address[31:16], io_bus_data_out, block_address[7:0]};
-        else if (select_block_address_3)
+        else if (io_write & select_block_address_3)
             block_address   <= {block_address[31:24], io_bus_data_out, block_address[15:0]};
-        else if (select_block_address_4)
+        else if (io_write & select_block_address_4)
             block_address   <= {io_bus_data_out, block_address[23:0]};
         else
             block_address   <= block_address;
@@ -329,7 +329,7 @@ module KFMMC_DRIVE_IDE #(
     logic   [7:0]   fifo_in;
     logic   [1:0]   shift_fifo;
 
-    assign  fifo_in = select_ide_fifo ? io_bus_data_out :
+    assign  fifo_in = (io_write & select_ide_fifo) ? io_bus_data_out :
                         shift_fifo[1] ? latch_data[7:0] :
                         shift_fifo[0] ? latch_data[15:8] : 8'hFF;
 
@@ -372,7 +372,7 @@ module KFMMC_DRIVE_IDE #(
     always_ff @(posedge clock, posedge reset) begin
         if (reset)
             fifo_counter    <= 16'h0000;
-        else if (select_ide_data_request)
+        else if (io_write & select_ide_data_request)
             fifo_counter    <= access_block_size;
         else if (ide_data_request && (|fifo_counter) && shift_fifo[0])
             fifo_counter    <= fifo_counter - 16'h0001;
@@ -392,7 +392,7 @@ module KFMMC_DRIVE_IDE #(
             ide_busy            <= 1'b1;
         else if (write_command && (latch_address == 3'b111))
             ide_busy            <= 1'b1;
-        else if (select_ide_status)
+        else if (io_write & select_ide_status)
             ide_busy            <= io_bus_data_out[7];
         else
             ide_busy            <= ide_busy;
@@ -401,7 +401,7 @@ module KFMMC_DRIVE_IDE #(
     always_ff @(posedge clock, posedge reset) begin
         if (reset)
             ide_device_ready    <= 1'b0;
-        else if (select_ide_status)
+        else if (io_write & select_ide_status)
             ide_device_ready    <= io_bus_data_out[6];
         else
             ide_device_ready    <= ide_device_ready;
@@ -410,7 +410,7 @@ module KFMMC_DRIVE_IDE #(
     always_ff @(posedge clock, posedge reset) begin
         if (reset)
             ide_data_request    <= 1'b0;
-        else if (select_ide_data_request)
+        else if (io_write & select_ide_data_request)
             ide_data_request    <= io_bus_data_out[0];
         else if (~|fifo_counter)
             ide_data_request    <= 1'b0;
@@ -421,7 +421,7 @@ module KFMMC_DRIVE_IDE #(
     always_ff @(posedge clock, posedge reset) begin
         if (reset)
             ide_error_flag      <= 1'b0;
-        else if (select_ide_status)
+        else if (io_write & select_ide_status)
             ide_error_flag      <= io_bus_data_out[0];
         else
             ide_error_flag      <= ide_error_flag;
@@ -433,7 +433,7 @@ module KFMMC_DRIVE_IDE #(
     always_ff @(posedge clock, posedge reset) begin
         if (reset)
             ide_error           <= 1'b0;
-        else if (select_ide_error)
+        else if (io_write & select_ide_error)
             ide_error           <= io_bus_data_out;
         else
             ide_error           <= ide_error;
@@ -447,7 +447,7 @@ module KFMMC_DRIVE_IDE #(
             ide_features        <= 8'h00;
         else if (write_command && (latch_address == 3'b001))
             ide_features        <= latch_data;
-        else if (select_ide_features)
+        else if (io_write & select_ide_features)
             ide_features        <= io_bus_data_out;
         else
             ide_features        <= ide_features;
@@ -461,7 +461,7 @@ module KFMMC_DRIVE_IDE #(
             ide_sector_count    <= 16'h0001;
         else if (write_command && (latch_address == 3'b010))
             ide_sector_count    <= {ide_sector_count[7:0], latch_data[7:0]};
-        else if (select_ide_sector_count)
+        else if (io_write & select_ide_sector_count)
             ide_sector_count    <= io_bus_data_out;
         else
             ide_sector_count    <= ide_sector_count;
@@ -475,7 +475,7 @@ module KFMMC_DRIVE_IDE #(
             ide_sector_number   <= 16'h0001;
         else if (write_command && (latch_address == 3'b011))
             ide_sector_number   <= {ide_sector_number[7:0], latch_data[7:0]};
-        else if (select_ide_sector_number)
+        else if (io_write & select_ide_sector_number)
             ide_sector_number   <= io_bus_data_out;
         else
             ide_sector_number   <= ide_sector_number;
@@ -491,9 +491,9 @@ module KFMMC_DRIVE_IDE #(
             ide_cylinder        <= {ide_cylinder[31:24], ide_cylinder[7:0],   ide_cylinder[15:8],  latch_data[7:0]};
         else if (write_command && (latch_address == 3'b101))
             ide_cylinder        <= {ide_cylinder[15:8],  ide_cylinder[23:16], latch_data[7:0], ide_cylinder[7:0]  };
-        else if (select_ide_cylinder_1)
+        else if (io_write & select_ide_cylinder_1)
             ide_cylinder        <= {ide_cylinder[31:24], ide_cylinder[7:0],   ide_cylinder[15:8],  io_bus_data_out};
-        else if (select_ide_cylinder_2)
+        else if (io_write & select_ide_cylinder_2)
             ide_cylinder        <= {ide_cylinder[15:8],  ide_cylinder[23:16], io_bus_data_out, ide_cylinder[7:0]  };
         else
             ide_cylinder        <= ide_cylinder;
@@ -507,7 +507,7 @@ module KFMMC_DRIVE_IDE #(
             ide_head_number     <= 4'h0;
         else if (write_command && (latch_address == 3'b110))
             ide_head_number     <= latch_data[3:0];
-        else if (select_ide_head_number)
+        else if (io_write & select_ide_head_number)
             ide_head_number     <= io_bus_data_out[3:0];
         else
             ide_head_number     <= ide_head_number;
@@ -521,7 +521,7 @@ module KFMMC_DRIVE_IDE #(
             ide_select_drive    <= 1'b0;
         else if (write_command && (latch_address == 3'b110))
             ide_select_drive    <= latch_data[4];
-        else if (select_ide_drive)
+        else if (io_write & select_ide_drive)
             ide_select_drive    <= io_bus_data_out[0];
         else
             ide_select_drive    <= ide_select_drive;
@@ -535,7 +535,7 @@ module KFMMC_DRIVE_IDE #(
             ide_select_lba      <= 1'b0;
         else if (write_command && (latch_address == 3'b110))
             ide_select_lba      <= latch_data[6];
-        else if (select_ide_lba)
+        else if (io_write & select_ide_lba)
             ide_select_lba      <= io_bus_data_out[0];
         else
             ide_select_lba      <= ide_select_lba;
