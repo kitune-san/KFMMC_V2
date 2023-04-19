@@ -313,25 +313,21 @@ module KFMMC_DRIVE_IDE #(
     // IDE Registers
     //
 
-    // IDE write data
-    logic   [15:0]  ide_write_data;
-    always_ff @(posedge clock, posedge reset) begin
-        if (reset)
-            ide_write_data  <= 15'h00;
-        else if (write_command)
-            ide_write_data  <= latch_data;
-        else
-            ide_write_data  <= ide_write_data;
-    end
-
     // FIFO
     logic   [7:0]   fifo[0:access_block_size-1];
-    logic   [7:0]   fifo_in;
+    logic   [15:0]  fifo_in;
     logic   [1:0]   shift_fifo;
 
-    assign  fifo_in = (io_write & select_ide_fifo) ? io_bus_data_out :
-                        shift_fifo[1] ? latch_data[7:0] :
-                        shift_fifo[0] ? latch_data[15:8] : 8'hFF;
+    always_ff @(posedge clock, posedge reset) begin
+        if (reset)
+            fifo_in         <= 16'h0000;
+        else if (io_write & select_ide_fifo)
+            fifo_in         <= {io_bus_data_out, 8'h00};
+        else if ((ide_data_request) && (ide_address == 3'b000) && (write_command))
+            fifo_in         <= latch_data;
+        else
+            fifo_in         <= fifo_in;
+    end
 
     always_ff @(posedge clock, posedge reset) begin
         if (reset)
@@ -348,7 +344,8 @@ module KFMMC_DRIVE_IDE #(
         if (reset)
             fifo[0] <= 8'h00;
         else if (shift_fifo[0])
-            fifo[0] <= fifo_in;
+            fifo[0] <= shift_fifo[1] ? fifo_in[7:0] :
+                       shift_fifo[0] ? fifo_in[15:8] : 8'hFF;
         else
             fifo[0] <= fifo[0];
     end
