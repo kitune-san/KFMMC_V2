@@ -89,6 +89,16 @@ module KFMMC_DRIVE_IDE #(
     wire    select_block_address_3      = io_bus_address == 8'b10001000;
     wire    select_block_address_4      = io_bus_address == 8'b10001001;
 
+
+    wire    select_storage_sectors_1    = io_bus_address == 8'b10001100;
+    wire    select_storage_sectors_2    = io_bus_address == 8'b10001101;
+    wire    select_storage_sectors_3    = io_bus_address == 8'b10001110;
+    wire    select_storage_sectors_4    = io_bus_address == 8'b10001111;
+    wire    select_storage_cylinder_1   = io_bus_address == 8'b10010000;
+    wire    select_storage_cylinder_2   = io_bus_address == 8'b10010001;
+    wire    select_storage_head         = io_bus_address == 8'b10010010;
+    wire    select_storage_spt          = io_bus_address == 8'b10010011;
+
     wire    select_ide_fifo             = io_bus_address == 8'b11000001;
     wire    select_ide_data_request     = io_bus_address == 8'b11000010;
     wire    select_ide_status           = io_bus_address == 8'b11000011;
@@ -306,6 +316,40 @@ module KFMMC_DRIVE_IDE #(
             block_address   <= {io_bus_data_out, block_address[23:0]};
         else
             block_address   <= block_address;
+    end
+
+    // Storage CHS
+    logic   [15:0]  storage_cylinder;   // 65535-0  (BIOS: 1023-0)
+    logic   [3:0]   storage_head;       // 15-0     (BIOS: 254-0)
+    logic   [7:0]   storage_spt;        // 255-1    (BIOS: 63-1)
+
+    always_ff @(posedge clock, posedge reset) begin
+        if (reset)
+            storage_cylinder    <= 16'h0000;
+        else if (io_write & select_storage_cylinder_1)
+            storage_cylinder    <= {storage_cylinder[15:8], io_bus_data_out};
+        else if (io_write & select_storage_cylinder_2)
+            storage_cylinder    <= {io_bus_data_out,  storage_cylinder[7:0]};
+        else
+            storage_cylinder    <= storage_cylinder;
+    end
+
+    always_ff @(posedge clock, posedge reset) begin
+        if (reset)
+            storage_head        <= 4'h0;
+        else if (io_write & select_storage_head)
+            storage_head        <= io_bus_data_out[3:0];
+        else
+            storage_head        <= storage_head;
+    end
+
+    always_ff @(posedge clock, posedge reset) begin
+        if (reset)
+            storage_spt         <= 8'h00;
+        else if (io_write & select_storage_spt)
+            storage_spt         <= io_bus_data_out[7:0];
+        else
+            storage_spt         <= storage_spt;
     end
 
 
@@ -579,6 +623,22 @@ module KFMMC_DRIVE_IDE #(
             io_bus_data_in  = block_address[23:16];
         else if (select_block_address_4)
             io_bus_data_in  = block_address[31:24];
+        else if (select_storage_sectors_1)
+            io_bus_data_in  = storage_size[16:9];
+        else if (select_storage_sectors_2)
+            io_bus_data_in  = storage_size[24:17];
+        else if (select_storage_sectors_3)
+            io_bus_data_in  = storage_size[32:25];
+        else if (select_storage_sectors_4)
+            io_bus_data_in  = {1'b0, storage_size[39:33]};
+        else if (select_storage_cylinder_1)
+            io_bus_data_in  = storage_cylinder[7:0];
+        else if (select_storage_cylinder_2)
+            io_bus_data_in  = storage_cylinder[15:8];
+        else if (select_storage_head)
+            io_bus_data_in  = {4'h0, storage_head};
+        else if (select_storage_spt)
+            io_bus_data_in  = storage_spt;
         else if (select_ide_fifo)
             io_bus_data_in  = fifo[access_block_size - 1];
         else if (select_ide_status)
