@@ -15,15 +15,15 @@ define reg4                 0x07
 define spi_data             0x80
 define spi_status           0x81
 define status_flags         0x82
-define error_flags          0x83   ; TODO: Delete
-define interrupt_flags      0x84   ; TODO: Delete
+;define error_flags          0x83
+;define interrupt_flags      0x84
 define csd_input            0x85
 define block_addr_1         0x86
 define block_addr_2         0x87
 define block_addr_3         0x88
 define block_addr_4         0x89
-define trans_data           0x8A   ; TODO: Delete
-define command              0x8B   ; TODO: Delete
+;define trans_data           0x8A
+;define command              0x8B
 define storage_sectors_1    0x8C
 define storage_sectors_2    0x8D
 define storage_sectors_3    0x8E
@@ -32,6 +32,11 @@ define storage_cylinder_1   0x90
 define storage_cylinder_2   0x91
 define storage_head         0x92
 define storage_spt          0x93
+define logical_cylinder_1   0x94
+define logical_cylinder_2   0x95
+define logical_head         0x96
+define logical_spt          0x97
+
 
 define ide_fifo             0xC1
 define ide_data_req         0xC2
@@ -52,8 +57,8 @@ reset:
     ldi     0x03
     st      status_flags
     ; Reset error
-    ldi     0x00
-    st      error_flags
+;    ldi     0x00
+;    st      error_flags
     ; Reset IDE
     ldi     0x80
     st      ide_status
@@ -485,26 +490,6 @@ send_cmd58_get_ccs:
     ldi     send_3_dummy_clock.h
     call    send_3_dummy_clock.l
 
-busy_wait:
-    ldi     0xFF
-    st      spi_data
-    ldi     wait_spi_comm.h
-    call    wait_spi_comm.l
-
-    ld      spi_data
-    st      a
-    ldi     0xFF
-    st      b
-    ldi     xor
-    st      alu
-    ld      alu
-
-    ldi     calc_ide_chs.h
-    jz      calc_ide_chs.l
-
-    ldi     busy_wait.h
-    jmp     busy_wait.l
-
 calc_ide_chs:
     ; Calculate CHS
     ld      storage_sectors_1
@@ -603,6 +588,20 @@ increment_cylinder:
 
 end_calc_ide_chs:
 
+    ld      storage_cylinder_1
+    st      logical_cylinder_1
+
+    ld      storage_cylinder_2
+    st      logical_cylinder_2
+
+    ld      storage_head
+    st      logical_head
+
+    ld      storage_spt
+    st      logical_spt
+
+diagnostic:
+
     ; err=0
     ldi     0b11111110
     st      a
@@ -620,6 +619,26 @@ end_calc_ide_chs:
     st      ide_cylinder_h
     st      ide_head_number
     st      ide_drive
+
+busy_wait:
+    ldi     0xFF
+    st      spi_data
+    ldi     wait_spi_comm.h
+    call    wait_spi_comm.l
+
+    ld      spi_data
+    st      a
+    ldi     0xFF
+    st      b
+    ldi     xor
+    st      alu
+    ld      alu
+
+    ldi     ready.h
+    jz      ready.l
+
+    ldi     busy_wait.h
+    jmp     busy_wait.l
 
 ready:
     ; busy=0
@@ -654,16 +673,16 @@ wait_command:
     ldi     wait_command.h
     jz      wait_command.l
 
-    ; Check reset command
+    ; Check Device Diagnostic command
     ld      ide_command
     st      a
-    ldi     0x08    ; device reset
+    ldi     0x90    ; DEVICE DIAGNOSTIC
     st      b
     ldi     xor
     st      alu
     ld      alu
-    ldi     reset.h
-    jz      reset.l
+    ldi     diagnostic.h
+    jz      diagnostic.l
 
     ; check drive select
     ld      ide_drive
@@ -678,8 +697,8 @@ wait_command:
 
     ; Clear flags
     ldi     0
-    st      error_flags
-    st      interrupt_flags
+;    st      error_flags
+;    st      interrupt_flags
     st      ide_error
 
     ; ide ready=0 dreq=0, err=0
@@ -694,18 +713,83 @@ wait_command:
     ld      ide_command
     st      a
 
+    ldi     0x08    ; DEVICE RESET
+    st      b
+    ld      alu
+    ldi     reset.h
+    jz      reset.l
+
+    ldi     0x91    ; INITIALIZE DEVICE PARAMETERS
+    st      b
+    ld      alu
+    ldi     init_device_parameters.h
+    jz      init_device_parameters.l
+
+    ldi     0x20    ; READ SECTOR(S)
+    st      b
+    ld      alu
+    ldi     read_sectors_command.h
+    jz      read_sectors_command.l
+
+    ldi     0x21    ; READ SECTOR(S)
+    st      b
+    ld      alu
+    ldi     read_sectors_command.h
+    jz      read_sectors_command.l
+
+    ldi     0x30    ; WRITE SECTOR(S)
+    st      b
+    ld      alu
+    ldi     write_sectors_command.h
+    jz      write_sectors_command.l
+
+    ldi     0x31    ; WRITE SECTOR(S)
+    st      b
+    ld      alu
+    ldi     write_sectors_command.h
+    jz      write_sectors_command.l
+
+    ldi     0x40    ; READ VERIFY SECTOR(S)
+    st      b
+    ld      alu
+    ldi     verify_command.h
+    jz      verify_command.l
+
+    ldi     0x41    ; READ VERIFY SECTOR(S)
+    st      b
+    ld      alu
+    ldi     verify_command.h
+    jz      verify_command.l
+
+    ldi     0xC4    ; READ MULTIPLE
+    st      b
+    ld      alu
+    ldi     read_sectors_command.h
+    jz      read_sectors_command.l
+
+    ldi     0xC5    ; WRITE MULTIPLE
+    st      b
+    ld      alu
+    ldi     write_sectors_command.h
+    jz      write_sectors_command.l
+
+    ldi     0xC6    ; SET MULTIPLE
+    st      b
+    ld      alu
+    ldi     invalid_command.h
+    jz      invalid_command.l
+
+    ldi     0x70    ; SEEK
+    st      b
+    ld      alu
+    ldi     ready.h
+    jz      ready.l
+
     ldi     0xEC    ; IDENTIFY DEVICE
     st      b
     ld      alu
     ldi     identify_device_cmd.h
     jz      identify_device_cmd.l
-
-
-
-
-
-
-
 
 invalid_command:
     ; ide err=1
@@ -720,6 +804,490 @@ invalid_command:
     ldi     ready.h
     jmp     ready.l
 
+
+init_device_parameters:
+    ; Check argument
+    ldi     0
+    st      a
+    ldi     or
+    st      alu
+
+    ld      ide_sector_count
+    st      b
+    ld      alu
+    ldi     invalid_command.h
+    jz      invalid_command.l
+
+    ld      ide_head_number
+    st      b
+    ld      alu
+    ldi     invalid_command.h
+    jz      invalid_command.l
+
+    ld      ide_sector_count
+    st      logical_spt
+
+    ld      ide_head_number
+    st      logical_head
+
+    ; total_cylinder = LBA / (spt * total_headers)
+    ; x = spt * total_headers
+    ldi     0
+    st      reg1
+    st      reg2
+    st      logical_cylinder_1
+    st      logical_cylinder_2
+
+spt_x_headers_loop:
+    ld      reg1
+    st      a
+    ld      logical_spt
+    st      b
+    ldi     add
+    st      alu
+    ld      alu
+    st      reg1
+
+    ld      reg2
+    st      a
+    ldi     0
+    st      b
+    ldi     adc
+    st      alu
+    ld      alu
+    st      reg2
+
+    ld      logical_head
+    st      a
+    ldi     1
+    st      b
+    ldi     sub
+    st      alu
+    ld      alu
+    st      logical_head
+
+    ldi     end_spt_x_headers_loop.h
+    jz      end_spt_x_headers_loop.l
+
+    ldi     spt_x_headers_loop.h
+    jmp     spt_x_headers_loop.l
+
+end_spt_x_headers_loop:
+    ld      ide_head_number
+    st      logical_head
+
+    ; total_cylinder = LBA / x
+    ld      storage_sectors_1
+    st      block_addr_1
+
+    ld      storage_sectors_2
+    st      block_addr_2
+
+    ld      storage_sectors_3
+    st      block_addr_3
+
+    ld      storage_sectors_4
+    st      block_addr_4
+
+calc_total_cylinder_loop:
+    ld      block_addr_1
+    st      a
+    ld      reg1
+    st      b
+    ldi     sub
+    st      alu
+    ld      alu
+    st      block_addr_1
+
+    ld      block_addr_2
+    st      a
+    ld      reg2
+    st      b
+    ldi     sbc
+    st      alu
+    ld      alu
+    st      block_addr_2
+
+    ldi     0
+    st      b
+
+    ld      block_addr_3
+    st      a
+    ld      alu
+    st      block_addr_3
+
+    ld      block_addr_4
+    st      a
+    ld      alu
+    st      block_addr_4
+
+    ldi     calc_total_cylinder_loop_inc_c.h
+    jc      calc_total_cylinder_loop_inc_c.l
+
+    ldi     end_calc_total_cylinder_loop.h
+    jmp     end_calc_total_cylinder_loop.l
+
+calc_total_cylinder_loop_inc_c:
+    ld      logical_cylinder_1
+    st      a
+    ldi     1
+    st      b
+    ldi     add
+    st      alu
+    ld      alu
+    st      logical_cylinder_1
+
+    ld      logical_cylinder_2
+    st      a
+    ldi     0
+    st      b
+    ldi     adc
+    st      alu
+    ld      alu
+    st      logical_cylinder_2
+
+    ldi     calc_total_cylinder_loop.h
+    jmp     calc_total_cylinder_loop.l
+
+end_calc_total_cylinder_loop:
+    ldi     ready.h
+    jmp     ready.l
+
+
+verify_command:
+    ldi     0x08
+    st      a
+    ldi     set_status_bit.h
+    call    set_status_bit.l
+
+read_sectors_command:
+    ldi     calc_lba.h
+    call    calc_lba.l
+
+send_cmd17:
+    ; Read command
+    ldi     0xFF
+    st      spi_data
+    ldi     wait_spi_comm.h
+    call    wait_spi_comm.l
+
+    ; Block read
+    ; Send CMD17 51 xx xx xx xx FF
+    ldi     0x51
+    st      spi_data
+    ldi     wait_spi_comm.h
+    call    wait_spi_comm.l
+
+    ldi     send_address.h
+    call    send_address.l
+
+    ldi     10
+    st      reg1
+    ldi     wait_spi_r1_response.h
+    call    wait_spi_r1_response.l
+
+    ld      reg2
+    st      a
+    ldi     0x00
+    st      b
+    ldi     xor
+    st      alu
+    ld      alu
+    ldi     send_cmd17_clear_wait_token_count.h
+    jz      send_cmd17_clear_wait_token_count.l
+
+    ldi     send_cmd17_error.h
+    jmp     send_cmd17_error.l
+
+send_cmd17_clear_wait_token_count:
+    ldi     255
+    st      reg4
+
+send_cmd17_data_token:
+    ldi     255
+    st      reg1
+    ldi     0xFE
+    st      reg2
+    ldi     wait_to_start_spi_transmission.h
+    call    wait_to_start_spi_transmission.l
+
+    ld      reg3
+    st      a
+    ldi     0xFE
+    st      b
+    ldi     xor
+    st      alu
+    ld      alu
+    ldi     send_cmd17_set_read_count.h
+    jz      send_cmd17_set_read_count.l
+
+    ld      reg4
+    st      a
+    ldi     1
+    st      b
+    ldi     sub
+    st      alu
+    ld      alu
+    st      reg4
+
+    ldi     send_cmd17_error.h
+    jz      send_cmd17_error.l
+
+    ldi     send_cmd17_data_token.h
+    jmp     send_cmd17_data_token.l
+
+
+send_cmd17_set_read_count:
+    ldi     0xFF
+    st      reg1
+    ldi     0x01
+    st      reg2
+
+send_cmd17_read_data:
+    ldi     0xFF
+    st      spi_data
+    ldi     wait_spi_comm.h
+    call    wait_spi_comm.l
+
+;    ; Read byte interrupt
+;    ldi     0b00000001
+;    st      interrupt_flags
+;
+;    ldi     and
+;    st      alu
+;    ldi     0b00000001
+;    st      b
+;send_cmd17_wait:
+;    ld      interrupt_flags
+;    st      a
+;    ld      alu
+;    ldi     send_cmd17_next_check.h
+;    jz      send_cmd17_next_check.l
+;
+;    ldi     send_cmd17_wait.h
+;    jmp     send_cmd17_wait.l
+
+    ; Put read data into FIFO
+    ld      spi_data
+    st      ide_fifo
+
+send_cmd17_next_check:
+    ldi     dec_16.h
+    call    dec_16.l
+
+    ldi     send_cmd17_read_data.h
+    jc      send_cmd17_read_data.l
+
+;    ; Read completion interrupt
+;    ldi     0b00000010
+;    st      interrupt_flags
+;
+;    ldi     busy_wait.h
+;    jmp     busy_wait.l
+
+    ld      status_flags
+    st      a
+    ldi     0x08
+    st      b
+    ldi     and
+    st      alu
+    ld      alu
+
+    ldi     send_cmd17_transmit_data.h
+    jz      send_cmd17_transmit_data.l
+
+    ldi     send_cmd17_next_sector.h
+    jmp     send_cmd17_next_sector.l
+
+send_cmd17_transmit_data:
+    ldi     transmit_data.h
+    call    transmit_data.l
+
+send_cmd17_next_sector:
+    ld      ide_sector_count
+    st      a
+    ldi     1
+    st      b
+    ldi     sub
+    st      alu
+    ld      alu
+    st      ide_sector_count
+
+    ldi     end_read_sectors_command.h
+    jz      end_read_sectors_command.l
+
+    ; Increment LBA
+    ldi     increment_lba.h
+    call    increment_lba.l
+
+    ; Next sector
+    ldi     send_cmd17.h
+    jmp     send_cmd17.l
+
+send_cmd17_error:
+    ; ide err=1
+    ldi     0b01000000
+    st      ide_error
+    ldi     0b00000001
+    st      a
+    ldi     set_ide_status_bit.h
+    call    set_ide_status_bit.h
+
+end_read_sectors_command:
+    ld      0b11110111
+    st      a
+    ldi     clear_status_bit.h
+    call    clear_status_bit.l
+
+    ldi     busy_wait.h
+    jmp     busy_wait.l
+
+
+write_sectors_command:
+    ldi     calc_lba.h
+    call    calc_lba.l
+
+send_cmd24:
+    ldi     transmit_data.h
+    call    transmit_data.l
+
+    ; Write command
+    ldi     0xFF
+    st      spi_data
+    ldi     wait_spi_comm.h
+    call    wait_spi_comm.l
+
+    ; Block Write
+    ; Send CMD24 58 xx xx xx xx FF
+    ldi     0x58
+    st      spi_data
+    ldi     wait_spi_comm.h
+    call    wait_spi_comm.l
+
+    ldi     send_address.h
+    call    send_address.l
+
+    ldi     10
+    st      reg1
+    ldi     wait_spi_r1_response.h
+    call    wait_spi_r1_response.l
+
+    ld      reg2
+    st      a
+    ldi     0x00
+    st      b
+    ldi     xor
+    st      alu
+    ld      alu
+    ldi     send_cmd24_set_write_count.h
+    jz      send_cmd24_set_write_count.l
+
+    ldi     send_cmd24_error.h
+    jmp     send_cmd24_error.l
+
+send_cmd24_set_write_count:
+    ldi     0xFF
+    st      reg1
+    ldi     0x01
+    st      reg2
+
+send_cmd24_data_token:
+    ldi     0xFF
+    st      spi_data
+    ldi     wait_spi_comm.h
+    call    wait_spi_comm.l
+
+    ldi     0xFE
+    st      spi_data
+    ldi     wait_spi_comm.h
+    call    wait_spi_comm.l
+
+send_cmd24_data_request:
+;    ; Request write byte interrupt
+;    ldi     0b00000100
+;    st      interrupt_flags
+;
+;    ldi     and
+;    st      alu
+;    ldi     0b00000100
+;    st      b
+;send_cmd24_wait:
+;    ld      interrupt_flags
+;    st      a
+;    ld      alu
+;    ldi     send_cmd24_write.h
+;    jz      send_cmd24_write.l
+;
+;    ldi     send_cmd24_wait.h
+;    jmp     send_cmd24_wait.l
+
+send_cmd24_write:
+    ld      ide_fifo
+    st      spi_data
+    ldi     wait_spi_comm.h
+    call    wait_spi_comm.l
+
+send_cmd24_next_check:
+    ldi     dec_16.h
+    call    dec_16.l
+
+    ldi     send_cmd24_data_request.h
+    jc      send_cmd24_data_request.l
+
+    ; Write completion
+    ldi     send_3_dummy_clock.h
+    call    send_3_dummy_clock.l
+
+    ; Check data response
+    ld      spi_data
+    st      a
+    ldi     0b00011111
+    st      b
+    ldi     and
+    st      alu
+    ld      alu
+    st      a
+    ldi     0b00000101
+    st      b
+    ldi     xor
+    st      alu
+    ld      alu
+
+    ldi     send_cmd24_complete.h
+    jz      send_cmd24_complete.l
+
+send_cmd24_complete:
+;    ; Write completion interrupt
+;    ldi     0b00001000
+;    st      interrupt_flags
+
+    ld      ide_sector_count
+    st      a
+    ldi     1
+    st      b
+    ldi     sub
+    st      alu
+    ld      alu
+    st      ide_sector_count
+
+    ldi     end_write_sectors_command.h
+    jz      end_write_sectors_command.l
+
+    ; Increment LBA
+    ldi     increment_lba.h
+    call    increment_lba.l
+
+    ; Next sector
+    ldi     send_cmd24.h
+    jmp     send_cmd24.l
+
+send_cmd24_error:
+;    ldi     0b00000010
+;    st      error_flags
+
+end_write_sectors_command:
+    ldi     busy_wait.h
+    jmp     busy_wait.l
 
 identify_device_cmd:
     ; Set identify info to fifo
@@ -939,15 +1507,15 @@ identify_device_cmd:
     st      ide_fifo 
     ldi     0x00                ; 107 : 
     st      ide_fifo 
-    ld      storage_cylinder_1  ; 108 : TODO: Logical cylinder L
+    ld      logical_cylinder_1  ; 108 : Logical cylinder L
     st      ide_fifo 
-    ld      storage_cylinder_2  ; 109 : TODO: Logical cylinder H
+    ld      logical_cylinder_2  ; 109 : Logical cylinder H
     st      ide_fifo 
-    ld      storage_head        ; 110 : TODO: Logical head
+    ld      logical_head        ; 110 : Logical head
     st      ide_fifo 
     ldi     0x00                ; 111 : 
     st      ide_fifo 
-    ld      storage_spt         ; 112 : TODO: Logical spt
+    ld      logical_spt         ; 112 : Logical spt
     st      ide_fifo 
     ldi     0x00                ; 113 : 
     st      ide_fifo 
@@ -1149,9 +1717,248 @@ identify_transmit:
     jmp     ready.l
 
 
+;
+; Calculate LBA
+;
+calc_lba:
+    ld      ide_lba
+    st      a
+    ldi     0x01
+    st      b
+    ldi     and
+    st      alu
+    ld      alu
+
+    ldi     calc_lba_from_chs.h
+    jz      calc_lba_from_chs.l
 
 
+    ld      ide_sector_number
+    st      block_addr_1
 
+    ld      ide_cylinder_l
+    st      block_addr_2
+
+    ld      ide_cylinder_h
+    st      block_addr_3
+
+    ld      ide_head_number
+    st      block_addr_4
+
+    ret
+
+calc_lba_from_chs:
+    ; LBA = (H + C * total_headers) * spt + (S - 1)
+    ldi     0
+    st      block_addr_1
+    st      block_addr_2
+    st      block_addr_3
+    st      block_addr_4
+    st      reg2
+    st      reg3
+
+    ; x = H + C * total_headers
+    ld      ide_head_number
+    st      reg1
+
+    ld      logical_head
+    st      reg4
+
+c_x_h_loop:
+    ld      reg1
+    st      a
+    ld      ide_cylinder_l
+    st      b
+    ldi     add
+    st      alu
+    ld      alu
+    st      reg1
+
+    ld      reg2
+    st      a
+    ld      ide_cylinder_h
+    st      b
+    ldi     adc
+    st      alu
+    ld      alu
+    st      reg2
+
+    ld      reg3
+    st      a
+    ld      0
+    st      b
+    ld      alu
+    st      reg3
+
+
+    ld      reg4
+    st      a
+    ldi     1
+    st      b
+    ldi     sub
+    st      alu
+    ld      alu
+    st      reg4
+
+    ldi     end_c_x_h_loop.h
+    jz      end_c_x_h_loop.l
+
+    ldi     c_x_h_loop.h
+    jmp     c_x_h_loop.l
+
+end_c_x_h_loop:
+    ld      logical_spt
+    st      reg4
+
+x_spt_loop:
+    ; x *= spt
+    ld      block_addr_1
+    st      a
+    ld      reg1
+    st      b
+    ldi     add
+    st      alu
+    ld      alu
+    st      block_addr_1
+
+    ld      block_addr_2
+    st      a
+    ld      reg2
+    st      b
+    ldi     adc
+    st      alu
+    ld      alu
+    st      block_addr_2
+
+    ld      block_addr_3
+    st      a
+    ld      reg3
+    st      b
+    ld      alu
+    st      block_addr_3
+
+    ld      block_addr_4
+    st      a
+    ldi     0
+    st      b
+    ld      alu
+    st      block_addr_4
+
+
+    ld      reg4
+    st      a
+    ldi     1
+    st      b
+    ldi     sub
+    st      alu
+    ld      alu
+    st      reg4
+
+    ldi     end_x_spt_loop.h
+    jz      end_x_spt_loop.l
+
+    ldi     x_spt_loop.h
+    jmp     x_spt_loop.l
+
+end_x_spt_loop:
+    ; LBA = x + S - 1
+    ld      block_addr_1
+    st      a
+    ld      ide_sector_number
+    st      b
+    ldi     add
+    st      alu
+    ld      alu
+    st      block_addr_1
+
+    ld      block_addr_2
+    st      a
+    ldi     0
+    st      b
+    ldi     adc
+    st      alu
+    ld      alu
+    st      block_addr_2
+
+    ld      block_addr_3
+    st      a
+    ld      alu
+    st      block_addr_3
+
+    ld      block_addr_4
+    st      a
+    ld      alu
+    st      block_addr_4
+
+
+    ld      block_addr_1
+    st      a
+    ldi     1
+    st      b
+    ldi     sub
+    st      alu
+    ld      alu
+    st      block_addr_1
+
+    ld      block_addr_2
+    st      a
+    ldi     0
+    st      b
+    ldi     sbc
+    st      alu
+    ld      alu
+    st      block_addr_2
+
+    ld      block_addr_3
+    st      a
+    ld      alu
+    st      block_addr_3
+
+    ld      block_addr_4
+    st      a
+    ld      alu
+    st      block_addr_4
+
+    ret
+
+
+;
+; Increment LBA
+;
+increment_lba:
+    ld      block_addr_1
+    st      a
+    ldi     1
+    st      b
+    ldi     add
+    st      alu
+    ld      alu
+    st      block_addr_1
+
+    ld      block_addr_2
+    st      a
+    ldi     0
+    st      b
+    ldi     adc
+    st      alu
+    ld      alu
+    st      block_addr_2
+
+    ld      block_addr_3
+    st      a
+    ld      alu
+    st      block_addr_3
+
+    ld      block_addr_4
+    st      a
+    ld      alu
+    st      block_addr_4
+    ret
+
+
+;
+; Transmit data to System
+;
 transmit_data:
     ; Set data request
     ldi     0b00000001
@@ -1182,253 +1989,6 @@ transmit_end:
     ldi     0b10000000
     st      ide_status
     ret
-
-
-; Read command
-send_cmd17:
-    ldi     0xFF
-    st      spi_data
-    ldi     wait_spi_comm.h
-    call    wait_spi_comm.l
-
-    ; Block read
-    ; Send CMD17 51 xx xx xx xx FF
-    ldi     0x51
-    st      spi_data
-    ldi     wait_spi_comm.h
-    call    wait_spi_comm.l
-
-    ldi     send_address.h
-    call    send_address.l
-
-    ldi     10
-    st      reg1
-    ldi     wait_spi_r1_response.h
-    call    wait_spi_r1_response.l
-
-    ld      reg2
-    st      a
-    ldi     0x00
-    st      b
-    ldi     xor
-    st      alu
-    ld      alu
-    ldi     send_cmd17_clear_wait_token_count.h
-    jz      send_cmd17_clear_wait_token_count.l
-
-    ldi     send_cmd17_error.h
-    jmp     send_cmd17_error.l
-
-send_cmd17_clear_wait_token_count:
-    ldi     255
-    st      reg4
-
-send_cmd17_data_token:
-    ldi     255
-    st      reg1
-    ldi     0xFE
-    st      reg2
-    ldi     wait_to_start_spi_transmission.h
-    call    wait_to_start_spi_transmission.l
-
-    ld      reg3
-    st      a
-    ldi     0xFE
-    st      b
-    ldi     xor
-    st      alu
-    ld      alu
-    ldi     send_cmd17_set_read_count.h
-    jz      send_cmd17_set_read_count.l
-
-    ld      reg4
-    st      a
-    ldi     1
-    st      b
-    ldi     sub
-    st      alu
-    ld      alu
-    st      reg4
-
-    ldi     send_cmd17_error.h
-    jz      send_cmd17_error.l
-
-    ldi     send_cmd17_data_token.h
-    jmp     send_cmd17_data_token.l
-
-
-send_cmd17_set_read_count:
-    ldi     0xFF
-    st      reg1
-    ldi     0x01
-    st      reg2
-
-send_cmd17_read_data:
-    ldi     0xFF
-    st      spi_data
-    ldi     wait_spi_comm.h
-    call    wait_spi_comm.l
-
-    ; Read byte interrupt
-    ldi     0b00000001
-    st      interrupt_flags
-
-    ldi     and
-    st      alu
-    ldi     0b00000001
-    st      b
-send_cmd17_wait:
-    ld      interrupt_flags
-    st      a
-    ld      alu
-    ldi     send_cmd17_next_check.h
-    jz      send_cmd17_next_check.l
-
-    ldi     send_cmd17_wait.h
-    jmp     send_cmd17_wait.l
-
-send_cmd17_next_check:
-    ldi     dec_16.h
-    call    dec_16.l
-
-    ldi     send_cmd17_read_data.h
-    jc      send_cmd17_read_data.l
-
-    ; Read completion interrupt
-    ldi     0b00000010
-    st      interrupt_flags
-
-    ldi     busy_wait.h
-    jmp     busy_wait.l
-
-send_cmd17_error:
-    ldi     0b00000001
-    st      error_flags
-
-    ldi     busy_wait.h
-    jmp     busy_wait.l
-
-
-; Write command
-send_cmd24:
-    ldi     0xFF
-    st      spi_data
-    ldi     wait_spi_comm.h
-    call    wait_spi_comm.l
-
-    ; Block Write
-    ; Send CMD24 58 xx xx xx xx FF
-    ldi     0x58
-    st      spi_data
-    ldi     wait_spi_comm.h
-    call    wait_spi_comm.l
-
-    ldi     send_address.h
-    call    send_address.l
-
-    ldi     10
-    st      reg1
-    ldi     wait_spi_r1_response.h
-    call    wait_spi_r1_response.l
-
-    ld      reg2
-    st      a
-    ldi     0x00
-    st      b
-    ldi     xor
-    st      alu
-    ld      alu
-    ldi     send_cmd24_set_write_count.h
-    jz      send_cmd24_set_write_count.l
-
-    ldi     send_cmd24_error.h
-    jmp     send_cmd24_error.l
-
-send_cmd24_set_write_count:
-    ldi     0xFF
-    st      reg1
-    ldi     0x01
-    st      reg2
-
-send_cmd24_data_token:
-    ldi     0xFF
-    st      spi_data
-    ldi     wait_spi_comm.h
-    call    wait_spi_comm.l
-
-    ldi     0xFE
-    st      spi_data
-    ldi     wait_spi_comm.h
-    call    wait_spi_comm.l
-
-send_cmd24_data_request:
-    ; Request write byte interrupt
-    ldi     0b00000100
-    st      interrupt_flags
-
-    ldi     and
-    st      alu
-    ldi     0b00000100
-    st      b
-send_cmd24_wait:
-    ld      interrupt_flags
-    st      a
-    ld      alu
-    ldi     send_cmd24_write.h
-    jz      send_cmd24_write.l
-
-    ldi     send_cmd24_wait.h
-    jmp     send_cmd24_wait.l
-
-send_cmd24_write:
-    ld      trans_data
-    st      spi_data
-    ldi     wait_spi_comm.h
-    call    wait_spi_comm.l
-
-send_cmd24_next_check:
-    ldi     dec_16.h
-    call    dec_16.l
-
-    ldi     send_cmd24_data_request.h
-    jc      send_cmd24_data_request.l
-
-    ; Write completion
-    ldi     send_3_dummy_clock.h
-    call    send_3_dummy_clock.l
-
-    ; Check data response
-    ld      spi_data
-    st      a
-    ldi     0b00011111
-    st      b
-    ldi     and
-    st      alu
-    ld      alu
-    st      a
-    ldi     0b00000101
-    st      b
-    ldi     xor
-    st      alu
-    ld      alu
-
-    ldi     send_cmd24_complete.h
-    jz      send_cmd24_complete.l
-
-send_cmd24_complete:
-    ; Write completion interrupt
-    ldi     0b00001000
-    st      interrupt_flags
-
-    ldi     busy_wait.h
-    jmp     busy_wait.l
-
-send_cmd24_error:
-    ldi     0b00000010
-    st      error_flags
-
-    ldi     busy_wait.h
-    jmp     busy_wait.l
 
 
 ;
