@@ -262,7 +262,7 @@ module KFMMC_DRIVE_IDE #(
         if (reset)
             mmc_mode    <= 1'b1;
         else if (io_write & select_status_flags)
-            mmc_mode    <= io_bus_data_out[1];
+            mmc_mode    <= io_bus_data_out[2];
         else
             mmc_mode    <= mmc_mode;
     end
