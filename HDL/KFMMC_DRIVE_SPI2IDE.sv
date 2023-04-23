@@ -271,6 +271,16 @@ module KFMMC_DRIVE_IDE #(
             mmc_mode    <= mmc_mode;
     end
 
+    logic   verify_flag;
+    always_ff @(posedge clock, posedge reset) begin
+        if (reset)
+            verify_flag <= 1'b1;
+        else if (io_write & select_status_flags)
+            verify_flag <= io_bus_data_out[3];
+        else
+            verify_flag <= verify_flag;
+    end
+
     logic   ccs;
     always_ff @(posedge clock, posedge reset) begin
         if (reset)
@@ -652,7 +662,7 @@ module KFMMC_DRIVE_IDE #(
         else if (select_spi_status)
             io_bus_data_in  = {7'b0000000, spi_busy_status};
         else if (select_status_flags)
-            io_bus_data_in  = {1'b0, ccs , 3'b000, mmc_mode, spi_cs, drive_busy};
+            io_bus_data_in  = {1'b0, ccs , 2'b00, verify_flag, mmc_mode, spi_cs, drive_busy};
         else if (select_block_address_1)
             io_bus_data_in  = block_address[7:0];
         else if (select_block_address_2)
