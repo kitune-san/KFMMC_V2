@@ -620,25 +620,9 @@ diagnostic:
     st      ide_head_number
     st      ide_drive
 
-busy_wait:
-    ldi     0xFF
-    st      spi_data
-    ldi     wait_spi_comm.h
-    call    wait_spi_comm.l
-
-    ld      spi_data
-    st      a
-    ldi     0xFF
-    st      b
-    ldi     xor
-    st      alu
-    ld      alu
-
-    ldi     ready.h
-    jz      ready.l
-
     ldi     busy_wait.h
-    jmp     busy_wait.l
+    call    busy_wait.l
+
 
 ready:
     ; busy=0
@@ -1085,6 +1069,9 @@ send_cmd17_next_check:
 ;    ldi     busy_wait.h
 ;    jmp     busy_wait.l
 
+    ldi     busy_wait.h
+    call    busy_wait.l
+
     ld      status_flags
     st      a
     ldi     0x08
@@ -1139,8 +1126,8 @@ end_read_sectors_command:
     ldi     clear_status_bit.h
     call    clear_status_bit.l
 
-    ldi     busy_wait.h
-    jmp     busy_wait.l
+    ldi     ready.h
+    jmp     ready.l
 
 
 write_sectors_command:
@@ -1256,10 +1243,16 @@ send_cmd24_next_check:
     ldi     send_cmd24_complete.h
     jz      send_cmd24_complete.l
 
+    ldi     send_cmd24_error.h
+    jmp     send_cmd24_error.l
+
 send_cmd24_complete:
 ;    ; Write completion interrupt
 ;    ldi     0b00001000
 ;    st      interrupt_flags
+
+    ldi     busy_wait.h
+    call    busy_wait.l
 
     ld      ide_sector_count
     st      a
@@ -1284,10 +1277,17 @@ send_cmd24_complete:
 send_cmd24_error:
 ;    ldi     0b00000010
 ;    st      error_flags
+    ; ide err=1
+    ldi     0b01000000
+    st      ide_error
+    ldi     0b00000001
+    st      a
+    ldi     set_ide_status_bit.h
+    call    set_ide_status_bit.h
 
 end_write_sectors_command:
-    ldi     busy_wait.h
-    jmp     busy_wait.l
+    ldi     ready.h
+    jmp     ready.l
 
 identify_device_cmd:
     ; Set identify info to fifo
@@ -1716,6 +1716,32 @@ identify_transmit:
     ldi     ready.h
     jmp     ready.l
 
+
+;
+; Busy wait
+;
+busy_wait:
+    ldi     0xFF
+    st      spi_data
+    ldi     wait_spi_comm.h
+    call    wait_spi_comm.l
+
+    ld      spi_data
+    st      a
+    ldi     0xFF
+    st      b
+    ldi     xor
+    st      alu
+    ld      alu
+
+    ldi     end_busy_wait.h
+    jz      end_busy_wait.l
+
+    ldi     busy_wait.h
+    jmp     busy_wait.l
+
+end_busy_wait:
+    ret
 
 ;
 ; Calculate LBA
