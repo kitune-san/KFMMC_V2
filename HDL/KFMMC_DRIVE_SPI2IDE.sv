@@ -424,7 +424,7 @@ module KFMMC_DRIVE_IDE #(
     always_ff @(posedge clock, posedge reset) begin
         if (reset)
             shift_fifo      <= 2'b00;
-        else if (select_ide_fifo & (io_write | io_read))
+        else if (select_ide_fifo & (io_write | (io_read & sequencer_enable)))
             shift_fifo      <= 2'b01;
         else if ((ide_data_request) && (ide_address == 3'b000) && (write_command | (command_cs & read_edge)))
             shift_fifo      <= 2'b11;
