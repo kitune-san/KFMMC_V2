@@ -754,6 +754,9 @@ send_cmd24_next_check:
     ldi     send_cmd24_complete.h
     jz      send_cmd24_complete.l
 
+    ldi     send_cmd24_error.h
+    jmp     send_cmd24_error.l
+
 send_cmd24_complete:
     ; Write completion interrupt
     ldi     0b00001000
