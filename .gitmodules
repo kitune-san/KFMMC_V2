@@ -1,0 +1,3 @@
+[submodule "DEMO/KFTVGA"]
+	path = DEMO/KFTVGA
+	url = https://github.com/kitune-san/KFTVGA.git
